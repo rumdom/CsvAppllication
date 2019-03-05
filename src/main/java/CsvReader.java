@@ -1,6 +1,6 @@
-import javafx.util.Pair;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
+
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
@@ -9,22 +9,31 @@ import java.util.Map.Entry;
 
 public class CsvReader {
     public static void main(String[] args) {
+
         //retrieving the 2 list maps from orders 1. order-user listMap, 2. user-Day-Hour listMap
-        Pair<HashMap<Integer,
-                HashMap<Integer, Integer>>, HashMap<Integer, Integer>> ordersPerUserPerDayAndPerHour;
-        ordersPerUserPerDayAndPerHour = getOrdersPerUserPerDayPerHour ( );
+
+        Order order = readOrdersPerUserPerDayPerHour ( );
         HashMap<Integer,
-                HashMap<Integer, Integer>> userDayHourListMap = ordersPerUserPerDayAndPerHour.getKey ( );
-        HashMap<Integer, Integer> orderUserListMap = ordersPerUserPerDayAndPerHour.getValue ( );
-        HashMap<Integer, String> departmentIdNameListMap = getAllDepartment ( );
+                HashMap<Integer, Integer>> userDayHourListMap = order.getUserDayHourMap ( );
+        HashMap<Integer, Integer> orderUserListMap = order.getOrderUserMap ( );
+        HashMap<Integer, String> departmentIdNameListMap = readAllDepartments ( );
         HashMap<Integer, Integer> productDepartmentMap = readProductDepartment ( );
 //-----------------------------------------------reading product order list--------------------------------------------------------------------------------
         TreeMap<Integer, TreeMap<Integer, HashMap<Integer, HashMap<String, Integer>>>> dayMap;
-        dayMap = getOrderProduct ( userDayHourListMap, orderUserListMap, departmentIdNameListMap, productDepartmentMap );
+        dayMap = readOrderProduct ( userDayHourListMap, orderUserListMap, departmentIdNameListMap, productDepartmentMap );
         printOutput ( dayMap, departmentIdNameListMap );
     }
 
-    private static TreeMap<Integer, TreeMap<Integer, HashMap<Integer, HashMap<String, Integer>>>> getOrderProduct(HashMap<Integer, HashMap<Integer, Integer>> userDayHourListMap, HashMap<Integer, Integer> orderUserListMap, HashMap<Integer, String> departmentIdNameListMap, HashMap<Integer, Integer> productDepartmentMap) {
+    /**
+     * This method is used to read Order product file and fetches all the necessary details from other maps to make a consolidated map.
+     *
+     * @param userDayHourListMap
+     * @param orderUserListMap
+     * @param departmentIdNameListMap
+     * @param productDepartmentMap
+     * @return
+     */
+    private static TreeMap<Integer, TreeMap<Integer, HashMap<Integer, HashMap<String, Integer>>>> readOrderProduct(HashMap<Integer, HashMap<Integer, Integer>> userDayHourListMap, HashMap<Integer, Integer> orderUserListMap, HashMap<Integer, String> departmentIdNameListMap, HashMap<Integer, Integer> productDepartmentMap) {
         TreeMap<Integer, TreeMap<Integer, HashMap<Integer, HashMap<String, Integer>>>> dayMap = new
                 TreeMap<Integer, TreeMap<Integer, HashMap<Integer, HashMap<String, Integer>>>> ( );
 
@@ -49,19 +58,19 @@ public class CsvReader {
                     HashMap<Integer, Integer> DayHour = userDayHourListMap.get ( orderUserListMap.get ( order ) );
                     String departmentName = departmentIdNameListMap.get ( productDepartmentMap.get ( product ) );
 //--------------------------------------------------------------------------
-                    Integer keyDay;
-                    Integer hourDay;
+                    Integer day;
+                    Integer hour;
                     Iterator it = DayHour.entrySet ( ).iterator ( );
                     while (it.hasNext ( )) {
                         Entry pair = (Entry) it.next ( );
-                        keyDay = (Integer) pair.getKey ( );
-                        hourDay = (Integer) pair.getValue ( );
+                        day = (Integer) pair.getKey ( );
+                        hour = (Integer) pair.getValue ( );
 
-                        if (dayMap.containsKey ( keyDay )) {
-                            hourMap = dayMap.get ( keyDay );
+                        if (dayMap.containsKey ( day )) {
+                            hourMap = dayMap.get ( day );
 
-                            if (hourMap.containsKey ( hourDay )) {
-                                userMap = hourMap.get ( hourDay );
+                            if (hourMap.containsKey ( hour )) {
+                                userMap = hourMap.get ( hour );
 
                                 if (userMap.containsKey ( user )) {
                                     departmentOriginal = userMap.get ( user );
@@ -76,107 +85,123 @@ public class CsvReader {
 
                             } else {
                                 userMap = new HashMap<Integer, HashMap<String, Integer>> ( );
-                                hourMap.put ( hourDay, userMap );
+                                hourMap.put ( hour, userMap );
 
                             }
                         } else {
                             hourMap = new TreeMap<Integer, HashMap<Integer, HashMap<String, Integer>>> ( );
-                            dayMap.put ( keyDay, hourMap );
+                            dayMap.put ( day, hourMap );
                         }
-
-
                     }
                 }
             }
-
 
         } catch (IOException e) {
         }
         return dayMap;
     }
 
-
-    private static Pair<HashMap<Integer,
-            HashMap<Integer, Integer>>, HashMap<Integer, Integer>> getOrdersPerUserPerDayPerHour() {
-
+    /**
+     * This method  returns 2 maps wrapped in 'order' object 1. UserDayHourMap=<UserID, <Day, Hour>> 2. OrderUserMap =<OrderId,UserID>
+     *
+     * @return Order
+     */
+    private static Order readOrdersPerUserPerDayPerHour() {
+        Order order = new Order ( );
         HashMap<Integer, Integer> userOrderList = new HashMap<Integer, Integer> ( );
         HashMap<Integer,
-                HashMap<Integer, Integer>> userDayHourList = new HashMap<Integer,
+                HashMap<Integer, Integer>> userDayHourMap = new HashMap<Integer,
                 HashMap<Integer, Integer>> ( );
 
         try {
-            HashMap<Integer, Integer> dayHourlist;
+            HashMap<Integer, Integer> dayHourMap;
             Reader in = new FileReader ( "C:\\Users\\get2r\\Documents\\instacart_2017_05_01\\orders.csv" );
             Iterable<CSVRecord> orderRecords = CSVFormat.RFC4180.parse ( in );
             for (CSVRecord record : orderRecords) {
                 if (record.getRecordNumber ( ) != 1) {
                     if (record.get ( 2 ).equals ( "prior" )) {
 
-                        Integer keyDay = Integer.valueOf ( record.get ( 4 ) );
-                        Integer hourDay = Integer.valueOf ( record.get ( 5 ) );
-                        Integer order = Integer.valueOf ( record.get ( 0 ) );
-                        Integer user = Integer.valueOf ( record.get ( 1 ) );
-                        userOrderList.put ( order, user );
-                        dayHourlist = new HashMap<Integer, Integer> ( );
-                        dayHourlist.put ( keyDay, hourDay );
-                        userDayHourList.put ( user, dayHourlist );
-
-
+                        Integer day = Integer.valueOf ( record.get ( 4 ) );
+                        Integer hour = Integer.valueOf ( record.get ( 5 ) );
+                        Integer orderId = Integer.valueOf ( record.get ( 0 ) );
+                        Integer userId = Integer.valueOf ( record.get ( 1 ) );
+                        userOrderList.put ( orderId, userId );
+                        dayHourMap = new HashMap<Integer, Integer> ( );
+                        dayHourMap.put ( day, hour );
+                        userDayHourMap.put ( userId, dayHourMap );
                     }
                 }
             }
+            order.setUserDayHourMap ( userDayHourMap );
+            order.setOrderUserMap ( userOrderList );
         } catch (IOException e) {
         }
-        return new Pair<HashMap<Integer,
-                HashMap<Integer, Integer>>, HashMap<Integer, Integer>> ( userDayHourList, userOrderList );
+        return order;
     }
 
+    /**
+     * This method is used to read all the products and its departments <productId,departmentId>
+     *
+     * @return
+     */
     private static HashMap<Integer, Integer> readProductDepartment() {
-        HashMap<Integer, Integer> productDepartmentListMap = new HashMap<Integer, Integer> ( );
+        HashMap<Integer, Integer> productIdDepartmentIdMap = new HashMap<Integer, Integer> ( );
         try {
 
             Reader in = new FileReader ( "C:\\Users\\get2r\\Documents\\instacart_2017_05_01\\products.csv" );
             Iterable<CSVRecord> productRecords = CSVFormat.RFC4180.parse ( in );
             for (CSVRecord record : productRecords) {
                 if (record.getRecordNumber ( ) != 1) {
-                    Integer product = Integer.valueOf ( record.get ( 0 ) );
-                    Integer depart = Integer.valueOf ( record.get ( 3 ) );
-                    productDepartmentListMap.put ( product, depart );
+                    Integer productId = Integer.valueOf ( record.get ( 0 ) );
+                    Integer departId = Integer.valueOf ( record.get ( 3 ) );
+                    productIdDepartmentIdMap.put ( productId, departId );
                 }
             }
         } catch (IOException e) {
         }
-        return productDepartmentListMap;
+        return productIdDepartmentIdMap;
     }
 
-    private static HashMap<Integer, String> getAllDepartment() {
-        HashMap<Integer, String> allDepartmentListMap = new HashMap<Integer, String> ( );
+    /**
+     * This method is used to read all the departments <ID, Name>
+     *
+     * @return HashMap<Integer   ,       String>
+     */
+    private static HashMap<Integer, String> readAllDepartments() {
+        HashMap<Integer, String> allDepartmentMap = new HashMap<Integer, String> ( );
         try {
 
             Reader in = new FileReader ( "C:\\Users\\get2r\\Documents\\instacart_2017_05_01\\departments.csv" );
             Iterable<CSVRecord> departmentRecords = CSVFormat.RFC4180.parse ( in );
             for (CSVRecord record : departmentRecords) {
                 if (record.getRecordNumber ( ) != 1) {
-                    Integer dept = Integer.valueOf ( record.get ( 0 ) );
+                    Integer deptId = Integer.valueOf ( record.get ( 0 ) );
                     String departName = record.get ( 1 );
-                    allDepartmentListMap.put ( dept, departName );
+                    allDepartmentMap.put ( deptId, departName );
                 }
             }
         } catch (IOException e) {
         }
-        return allDepartmentListMap;
+        return allDepartmentMap;
     }
-    private static void printOutput(Map<Integer, TreeMap<Integer, HashMap<Integer, HashMap<String, Integer>>>> dayMap, HashMap<Integer, String> departmentIdNameListMap) {
+
+    /**
+     * This prints the output per day-per hour- per department the orders percentage
+     *
+     * @param dayMap
+     * @param departmentIdNameListMap
+     */
+    private static void printOutput(Map<Integer, TreeMap<Integer, HashMap<Integer, HashMap<String, Integer>>>> dayMap,
+                                    HashMap<Integer, String> departmentIdNameListMap) {
         TreeMap<Integer, HashMap<Integer, HashMap<String, Integer>>> hourMap;
         HashMap<Integer, HashMap<String, Integer>> userMap;
         HashMap<String, Integer> departmentsNEWTemp;
 
-        HashMap<String, Integer> departmentsNameCount = new HashMap<String, Integer> ( );
-
+        HashMap<String, Integer> departmentsFinal = new HashMap<String, Integer> ( );
+        //setting all the departments in the map
         for (String departsName : departmentIdNameListMap.values ( )) {
-            departmentsNameCount.put ( departsName, new Integer ( 0 ) );
+            departmentsFinal.put ( departsName, new Integer ( 0 ) );
         }
-
 
         for (Entry<Integer, TreeMap<Integer, HashMap<Integer, HashMap<String, Integer>>>> entry : dayMap.entrySet ( )) {
             System.out.println ( "\nDay :" + entry.getKey ( ) );
@@ -194,21 +219,21 @@ public class CsvReader {
 
                     for (Entry<String, Integer> temp2 : temp1.getValue ( ).entrySet ( )) {
 
-                        if (departmentsNameCount.containsKey ( temp2.getKey ( ) )) {
-                            count = departmentsNameCount.get ( temp2.getKey ( ) );
+                        if (departmentsFinal.containsKey ( temp2.getKey ( ) )) {
+                            count = departmentsFinal.get ( temp2.getKey ( ) );
                             count = count + departmentsNEWTemp.get ( temp2.getKey ( ) );
-                            departmentsNameCount.put ( temp2.getKey ( ), count );
+                            departmentsFinal.put ( temp2.getKey ( ), count );
                         }
 
                     }
                 }
                 Integer total = 0;
-                for (String key : departmentsNameCount.keySet ( )) {
-                    total = total + departmentsNameCount.get ( key );
+                for (String key : departmentsFinal.keySet ( )) {
+                    total = total + departmentsFinal.get ( key );
                 }
                 //--------------sorting the map in descending order---------------------------------
                 //convert map to a List
-                List<Entry<String, Integer>> list = new LinkedList<Entry<String, Integer>> ( departmentsNameCount.entrySet ( ) );
+                List<Entry<String, Integer>> list = new LinkedList<Entry<String, Integer>> ( departmentsFinal.entrySet ( ) );
 
                 //sorting the list with a comparator
                 Collections.sort ( list, new Comparator<Entry<String, Integer>> ( ) {
@@ -218,15 +243,15 @@ public class CsvReader {
                 } );
 
                 //convert sortedMap back to Map
-                Map<String, Integer> sortedMap = new LinkedHashMap<String, Integer> ( );
+                Map<String, Integer> departmentsSortedMap = new LinkedHashMap<String, Integer> ( );
                 for (Entry<String, Integer> x : list) {
-                    sortedMap.put ( x.getKey ( ), x.getValue ( ) );
+                    departmentsSortedMap.put ( x.getKey ( ), x.getValue ( ) );
                 }
                 //---------------------------end of sorting logic-----------------------------------
                 System.out.println ( "------------------------\t\t\ttotal:" + total );
                 int i = 1;
-                for (String key : sortedMap.keySet ( )) {
-                    Integer value = sortedMap.get ( key );
+                for (String key : departmentsSortedMap.keySet ( )) {
+                    Integer value = departmentsSortedMap.get ( key );
                     System.out.println ( "\t\t\t" + i + ":" + key + "= " + value * 100 / total + "%" );
                     i++;
                 }
